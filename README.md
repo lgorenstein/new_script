@@ -58,3 +58,7 @@ Enter option letter [a-z] (Enter to end) >
 $ ls -l example.sh
 -rwxr-xr-x 1 user group 7259 Mar 14 02:27 example.sh*
 ```
+
+Note that a handful of default options (`--help`, `--quiet`, `--verbose`,
+and `--version`) are generateded automatically, and do not have to be
+specified by hand.
