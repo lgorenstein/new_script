@@ -1,0 +1,736 @@
+#!/bin/bash
+# ----------------------------------------------------------------------
+# new_script - Bash shell script template generator
+#
+# Copyright 2012, William Shotts <bshotts@users.sourceforge.net>
+# http://linuxcommand.org/lc3_new_script.php
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License at <http://www.gnu.org/licenses/> for
+# more details.
+#
+# Usage: new_script [-h|--help] [-q|--quiet] [-s|--root] [-t|--tab] [script]
+#
+# Revision history:
+# 2024-03-13  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.3-LG23)
+# 		- Got rid of ARGV and ARGC (can just uset standard $@ and $#).
+# 		- Fixed an obscure bug in argument parser function.
+# 		- Turns out, back in 2014 the original author William Shotts
+# 		  has fixed a bug I reported, and bumped the upstream version
+# 		  to 3.3. To reflect this, I'll bump mine, too (now 3.3-LG23).
+# 2021-06-25  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG22)
+# 		- Added '-V|--version' default option. Pretty useless.
+# 2021-03-21  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG21)
+# 		- Major: switched to new 'getopt' (from 'util-linux' package)
+# 		  for modern options processing (short and long, joinable,
+# 		  etc).
+# 		- Simplify and compactify the 'warn()' function.
+# 2021-03-03  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG20)
+# 		- Sick of "if [[ $verbo -gt 0 ]]; then warn ...; fi"
+# 		  multi-line eyesores everywhere for logging, created
+# 		  a new 'verbose()' function (which is essentially exactly
+# 		  that, an info dump to stderr).  Now it's just one line.
+# 2021-01-26  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG19)
+# 		- Restore positional parameters after parsing command line.
+# 		  $1 and friends would work as expected now, but keep ARGV and
+# 		  ARGC scaffold to help with cases when a '-' input is needed.
+# 2020-05-29  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG18)
+# 		- Define a safe $PATH just for sanity.
+# 2020-02-02  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG17)
+# 		- Use 'set -o pipefail' for sanity.
+# 2019-12-05  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG16)
+# 		- Minor tweaks.
+# 2019-09-25  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG15)
+# 		- Improvements in the usage() function, minor tweaks.
+# 		- New feature: "assert_var_nonempty()" function, a handy
+# 		  test/bail in case any mandatory variables are empty.
+# 		- Slight reordering of header.
+# 2019-09-10  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG14)
+# 		- New feature: "assert_command_is_available()" function, a
+# 		  handy test in case any prerequisite commands are required.
+# 		  Inspired by https://github.com/TjWallas/bash-cookiecutter/
+# 		- Improvement: capitalize default option in [y/N] dialogs.
+# 2019-03-10  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG13)
+# 		- Better output for incorrect command line options.
+# 2019-02-28  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG12)
+# 		- Use '$status', not '$Status' for, well, status.
+# 2018-12-07  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG11)
+# 		- New feature: "say()" function. Just like "warn()", but 
+# 		  to stdout instead of stderr. Yay, more Perl-isms! :)
+# 		  The main reason for 'say' is to be able to 'say -p MESSAGE'
+# 		  as an easy way to prefix message with program name.
+# 		- Bug fix: OPTIND variable in warn() needs to be local.
+# 2018-09-16  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG10)
+# 		- New feature: $INDENT variable for code blocks (defaults 
+# 		  to '   ' as before, adjustable in ~/.new_scriptrc).
+# 		- New '-t' command-line option to force indentation by tabs
+# 		  (i.e. an easy run-time shortcut to INDENT="\t").
+# 		- These changes made the template and generator functions
+# 		  a little harder to read end edit, unfortunately.
+# 2018-09-16  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG9)
+# 		- Bug/feature fix: if '-s' ("needs root") option was given
+# 		  on command line, do not ask again in the creation dialogue.
+# 2017-04-25  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG8)
+# 		- Don't use 'Copyright' in the authorship line.
+# 2017-09-06  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG7)
+# 		- Nicer history and version output.
+# 2015-05-01  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG6)
+# 		- Minor odds and ends.
+# 2015-04-16  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG5)
+# 		- Added option '-p' in the warn() function.
+# 		- Hard-wired '/bin/bash' as $SHELL_SCRIPT to make sure things
+# 		  work for users of other shells out of the box.
+# 		- Use $BASH_SOURCE instead of $0 for PROGNAME (nicer in bash).
+# 2015-04-16  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG4)
+# 		- Minor odds and ends.
+# 2014-05-26  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG3)
+# 		- Changed some indentation and help text.
+# 		- Modified the set of default options and their handling.
+#		  Now you can have several of them and they are appended
+# 		  to the user-supplied ones.
+# 		- Added function warn(), added smarts to error_exit().
+# 2014-04-14  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG2)
+# 		- Minor rearrangements in help text.
+# 2014-03-10  Tweaks by Lev Gorenstein <lev@ledorub.poxod.com> (3.2-LG1)
+#               - Fixed a bug in here-doc in function insert_help()
+#               - Added configuration file capabilities.
+#               - Function error_exit() can take desired exit status as arg2
+#                 (so it can be used as a universal handler inside the script).
+# 		- Function graceful_exit() can take desired exit status as arg1
+#                 (don't know why one would need it, but heck why not).
+#               - Added support for "--" command line option terminator.
+#               - Added ARGV and ARGC variables to collect all non-options 
+#                 parameters after option processing.
+#               - Minor cleanups.
+# 		- Tried to reach original author to no avail.
+# 2014-01-21  Minor formatting corrections (3.2)
+# 2014-01-12  Various cleanups (3.1)
+# 2012-05-14  Created
+# ----------------------------------------------------------------------
+
+VERSION="3.3-LG23" 			# Increment me!
+PROGNAME=${BASH_SOURCE##*/}
+
+# Make some pretty date strings
+DATE=$(date +'%Y-%m-%d')
+YEAR=$(date +'%Y')
+
+# Get user's real name from passwd file
+AUTHOR=$(awk -v USER=$USER -F: '$1 == USER {print $5}' < /etc/passwd)
+
+# Construct the user's email address from the hostname or the REPLYTO
+# environment variable, if defined
+EMAIL_ADDRESS="<${REPLYTO:-${USER}@$HOSTNAME}>"
+
+# Indentation string (for loops, conditionals, etc).
+INDENT="   "
+
+# Use configuration file to override above defaults if necessary.
+CONFIG_FILE="$HOME/.new_scriptrc"
+if [[ -f "$CONFIG_FILE" ]]; then
+  . "$CONFIG_FILE"
+fi
+
+
+# Arrays for command-line options and option arguments
+declare -a opt opt_desc opt_long opt_arg opt_arg_desc
+
+
+clean_up() { # Perform pre-exit housekeeping
+  return
+}
+
+error_exit() {
+  # error_exit ["message" [status]]
+  echo -e "${PROGNAME}: ${1:-"Unknown Error"}" >&2
+  clean_up
+  exit ${2:-1}
+}
+
+graceful_exit() {
+  # graceful_exit [status]
+  clean_up
+  exit ${1:-0}
+}
+
+signal_exit() { # Handle trapped signals
+  case $1 in
+    INT)
+      error_exit "Program interrupted by user" ;;
+    TERM)
+      echo -e "\n$PROGNAME: Program terminated" >&2
+      graceful_exit ;;
+    *)
+      error_exit "$PROGNAME: Terminating on unknown signal" ;;
+  esac
+}
+
+usage() {
+  echo "Usage: ${PROGNAME} [-h|--help ] [-q|--quiet] [-s|--root] [-t|--tab] [script]"
+}
+
+help_message() {
+  cat <<- _EOF_
+  ${PROGNAME} ${VERSION}
+  Bash shell script template generator.
+
+  $(usage)
+
+  Options:
+
+  -q, --quiet   Quiet mode. No prompting. Outputs default script.
+  -s, --root    Output script requires root privileges to run.
+  -t, --tab     Output indentation by tabs (as opposed to default '$INDENT').
+  -h, --help    Display this help message and exit.
+
+
+  Files:
+
+  Some configuration settings can be overriden in \$HOME/.new_scriptrc.
+  Mostly useful for name/email address (so you could have separate configs
+  for work and hobby projects). The file is simply sourced by the script,
+  so a) be careful, and b) don't expect miracles.
+
+
+  Authors:
+
+  The original 'new_script' tool was written by William Shotts
+  <bshotts@users.sourceforge.net> in 2012, and is available at
+  https://linuxcommand.org/lc3_new_script.php
+
+  This version ($VERSION) is based on new_script v3.3, with furter tweaks
+  and features added by Lev Gorenstein <lev@ledorub.poxod.com> at
+  https://github.com/lgorenstein/new_script/
+
+_EOF_
+}
+
+insert_license() {
+
+  if [[ -z $script_license ]]; then
+    echo "# All rights reserved."
+    return
+  fi
+  cat <<- _EOF_
+  
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License at <http://www.gnu.org/licenses/> for
+# more details.
+_EOF_
+}
+
+insert_usage() {
+
+  echo -e "usage() {\n${INDENT}echo \"$usage_str\"\n}"
+}
+
+insert_help_message() {
+
+  local arg i long
+
+  echo -e "\nhelp_message() {"
+  echo -e "${INDENT}# Yes, I don't like the '<<-' form, so indentation is somewhat off"
+  echo -e "${INDENT}cat << _EOF_"
+  echo -e "\$PROGNAME ver. \$VERSION"
+  echo -e "\n$script_purpose"
+  echo -e "\n\$(usage)"
+  echo -e "\nOptions:"
+  i=0
+  while [[ ${opt[i]} ]]; do
+    long=
+    arg=
+    [[ ${opt_long[i]} ]] && long=", --${opt_long[i]}"
+    [[ ${opt_arg[i]} ]] && arg=" ${opt_arg[i]}"
+    echo -e "  -${opt[i]}$long$arg\t ${opt_desc[i]}"
+    [[ ${opt_arg[i]} ]] && \
+      echo -e "\t\t Where '${opt_arg[i]}' is the ${opt_arg_desc[i]}."
+    ((++i))
+  done
+  [[ $root_mode ]] && \
+    echo -e "\nNOTE: You must be the superuser to run this script."
+  echo -e "\nExit status:"
+  echo -e "   \$E_OK  - normal termination"
+  echo -e "   \$E_CMDLINE  - error parsing command line"
+  echo -e "   \$E_RUNTIME  - runtime error"
+  echo -e "_EOF_"
+  echo -e "${INDENT}echo \"\""
+  echo -e "${INDENT}return\n}"
+}
+
+insert_root_check() {
+
+  if [[ $root_mode ]]; then
+    echo -e "# Check for root UID"
+    echo -e "if [[ \$(id -u) != 0 ]]; then"
+    echo -e "${INDENT}error_exit \"You must be the superuser to run this script.\""
+    echo -e "fi"
+  fi
+}
+
+insert_parser() {
+
+  local i
+
+  echo -e "# Using new getopt from util-linux package"
+  echo -e "SHORTOPTS=\"$optstring\""
+  echo -e "LONGOPTS=\"$optstring_long\""
+  echo -e "assert_modern_getopt"
+  echo -e "if ! TEMP=\$(getopt -o \"\$SHORTOPTS\" --long \"\$LONGOPTS\" -- \"\$@\"); then"
+  echo -e "${INDENT}usage; error_exit '' \$E_CMDLINE\nfi"
+  echo -e "eval set -- \"\$TEMP\""
+
+  echo -e "while true; do\n${INDENT}case \"\$1\" in"
+  for (( i = 0; i < ${#opt[@]} - ${#def_opt[@]}; i++ )); do
+    echo -ne "${INDENT}${INDENT}-${opt[i]}"
+    [[ -n ${opt_long[i]} ]] && echo -ne " | --${opt_long[i]}"
+    echo -ne ")\n${INDENT}${INDENT}${INDENT}warn -p \"${opt_desc[i]}\""
+    echo -ne "\n${INDENT}${INDENT}${INDENT}"
+    [[ -n ${opt_arg[i]} ]] && echo -ne "${opt_arg[i]}=\"\$2\"; shift 2" || echo -ne "opt_${opt[i]}=1; shift"
+    echo " ;;"
+  done
+  # Default options are special, so do them manually (remember to fix
+  # here if you change def_*** arrays in the main part below).
+  echo -e "${INDENT}${INDENT}-q | --quiet)\n${INDENT}${INDENT}${INDENT}verbo=-1; shift ;;"
+  echo -e "${INDENT}${INDENT}-v | --verbose)\n${INDENT}${INDENT}${INDENT}verbo=1; shift ;;"
+  echo -e "${INDENT}${INDENT}-V | --version)\n${INDENT}${INDENT}${INDENT}echo \"\$PROGNAME ver. \$VERSION\"; graceful_exit ;;"
+  echo -e "${INDENT}${INDENT}-h | --help)\n${INDENT}${INDENT}${INDENT}help_message; graceful_exit ;;"
+  echo -e "${INDENT}${INDENT}--) shift; break ;;"
+  echo -e "${INDENT}${INDENT} *) error_exit \"Internal error.\" \$E_RUNTIME ;;"
+  echo -e "${INDENT}esac\ndone"
+}
+
+write_script() {
+
+#############################################################################
+# START SCRIPT TEMPLATE
+#############################################################################
+cat << _EOF_
+#!/bin/bash
+# ----------------------------------------------------------------------
+# $script_name - $script_purpose
+#
+# Usage: $script_name$usage_message
+#
+#
+# By $AUTHOR $EMAIL_ADDRESS, $YEAR
+$(insert_license)
+#
+# Revision history:
+# $DATE 	v$script_version 	Initial revision (created by $PROGNAME ver. $VERSION).
+# ----------------------------------------------------------------------
+
+VERSION="$script_version" 			# Increment me!
+PROGNAME=\${BASH_SOURCE##*/}
+
+# ----------------------------------------------------------------------
+# Configuration and initialization.
+# ----------------------------------------------------------------------
+# SIZE_DEF="blah-blah"
+
+# Safe \$PATH and sane behavior in pipes
+export PATH=/bin:/usr/bin:/usr/local/bin
+set -o pipefail
+
+# ----------------------------------------------------------------------
+# Auxillary functions.
+# ----------------------------------------------------------------------
+# Exit codes:
+E_OK=0 					# Successful termination
+E_CMDLINE=1 				# Bad command line
+E_RUNTIME=2 				# Runtime error
+
+warn() {
+${INDENT}# warn [-p] "message" ["message"...]
+${INDENT}# Send message(s) to stderr (yes, I don't like '>&2' in the main code).
+${INDENT}# With '-p' option, prefixes each message with "PROGNAME: " (and that's
+${INDENT}# pretty much the main raison-d'etre for this function vs. plain "echo").
+${INDENT}local msg prefix=""
+${INDENT}if [[ "\$1" = "-p" ]]; then
+${INDENT}${INDENT}prefix="\$PROGNAME: "; shift
+${INDENT}fi
+
+${INDENT}# And now say it.
+${INDENT}for msg in "\$@" ; do
+${INDENT}${INDENT}echo -e "\${prefix}\${msg}" 1>&2
+${INDENT}done
+}
+
+verbose() {
+${INDENT}# verbose [-p] "message" ["message"...]
+${INDENT}# Logs the message to stderr if verbosity is right (because
+${INDENT}# I got tired of repeating this three-lined 'if' in the body).
+${INDENT}if [[ \$verbo -gt 0 ]]; then
+${INDENT}${INDENT}warn "\$@"
+${INDENT}fi
+}
+
+say() {
+${INDENT}# say [-p] "message" ["message"...]
+${INDENT}# Send message(s) to stdout.  Yes, this is just a glorified "echo".
+${INDENT}# With '-p' option, prefixes each message with "PROGNAME: " 
+${INDENT}# (and that's the main point of this one-liner's existence).
+${INDENT}warn "\$@" 2>&1 	# stdout -> stderr -> stdout. Silly, right?
+}
+
+clean_up() {
+${INDENT}# Perform pre-exit housekeeping
+${INDENT}return
+}
+
+error_exit() {
+${INDENT}# error_exit ["message" [status]]
+${INDENT}# Special case: an explicitly empty message ('') will not be printed.
+${INDENT}if [[ ! (\$# -gt 0 && -z "\$1") ]]; then
+${INDENT}${INDENT}warn -p "\${1:-"Unknown Error"}"
+${INDENT}fi
+${INDENT}clean_up
+${INDENT}exit \${2:-\$E_RUNTIME}
+}
+
+graceful_exit() {
+${INDENT}# graceful_exit [status]]
+${INDENT}clean_up
+${INDENT}exit \${1:-\$E_OK}
+}
+
+signal_exit() {
+${INDENT}# Handle trapped signals
+${INDENT}case \$1 in
+${INDENT}${INDENT}INT)
+${INDENT}${INDENT}${INDENT}error_exit "Program interrupted by user" ;;
+${INDENT}${INDENT}TERM)
+${INDENT}${INDENT}${INDENT}error_exit "Program terminated" ;;
+${INDENT}${INDENT}*)
+${INDENT}${INDENT}${INDENT}error_exit "Terminating on unknown signal" ;;
+${INDENT}esac
+}
+
+assert_modern_getopt() {
+${INDENT}# This script depends on getopt handling short and long options.
+${INDENT}# Older implementation of getopt may be incompatible, so let's check.
+${INDENT}unset GETOPT_COMPATIBLE && getopt --test >& /dev/null
+${INDENT}if [[ \$? -ne 4 ]]; then
+${INDENT}${INDENT}error_exit "Incompatible 'getopt' utility, can't proceed" \$E_RUNTIME
+${INDENT}fi
+}
+
+assert_command_is_available() {
+${INDENT}# Bail out if command is not present
+${INDENT}local cmd="\$1"
+${INDENT}type "\$cmd" >/dev/null 2>&1 || error_exit "Required command '\$cmd' is not available, bailing out."
+}
+
+assert_var_nonempty() {
+${INDENT}# If the variable name (\$1) is empty, bail out with an optional
+${INDENT}# message (\$2) and exit code (\$3).
+${INDENT}local var="\$1"
+${INDENT}local msg="\${2-Variable '\$var' is empty on line \${BASH_LINENO[0]}, bailing out.}"
+${INDENT}local status="\${3:-\$E_RUNTIME}"
+${INDENT}if [[ -z "\$1" ]]; then
+${INDENT}${INDENT}# Special case: \$1 was an empty string itself (not a variable)
+${INDENT}${INDENT}msg="\${2-Received an empty string on line \${BASH_LINENO[0]}, bailing out.}"
+${INDENT}${INDENT}error_exit "\$msg" "\$status"
+${INDENT}fi
+${INDENT}[[ -z "\${!var}" ]] && error_exit "\$msg" "\$status"
+}
+
+usage() {
+${INDENT}local LEADIN="  \$PROGNAME"
+${INDENT}local spacer=\$(printf "%\${#LEADIN}s" '')
+${INDENT}echo "Usage:"
+${INDENT}# To break into several lines:
+${INDENT}#${INDENT}echo -e "\$LEADIN ....line1...."
+${INDENT}#${INDENT}echo -e "\$spacer ....line2...."
+${INDENT}# Or just simply
+${INDENT}#${INDENT}echo -e "\$LEADIN [-h|--help] [OPTIONS] ...."
+${INDENT}echo -e "\$LEADIN$usage_message"
+}
+
+$(insert_help_message)
+
+
+# ----------------------------------------------------------------------
+# Trap signals
+# ----------------------------------------------------------------------
+trap "signal_exit TERM" TERM HUP
+trap "signal_exit INT"  INT
+
+$(insert_root_check)
+
+
+# ----------------------------------------------------------------------
+# Parse command-line
+# ----------------------------------------------------------------------
+status=\$E_OK 				# Hopefully ;-)
+verbo=0 				# Default verbosity
+
+$(insert_parser)
+
+
+# ----------------------------------------------------------------------
+# Defaults and sanity checks
+# ----------------------------------------------------------------------
+# Are we given any fish to fry?
+# Choice of proceeding with stdin, bailing with error, or exiting peacefully.
+# if [[ \$# -eq 0 ]]; then
+# ${INDENT}eval set -- "-"
+# fi
+# if [[ \$# -eq 0 ]]; then
+# ${INDENT}verbose -p "Nothing to work on!  Run with '-h' for help."
+# ${INDENT}error_exit '' \$E_CMDLINE
+# ${INDENT}error_exit '' \$E_OK
+# fi
+
+# More defaults
+# SIZE="\${SIZE:-\$SIZE_DEF}"
+
+# Required prerequisite commands, if any.
+# PREREQCMDS=( cmd1 cmd2 cmd3 ..... )
+# for cmd in "\${PREREQCMDS[@]}"; do
+# ${INDENT}assert_command_is_available "\$cmd"
+# done
+
+# Required variables, if any.
+# PREREQVARS=( VAR1 VAR2 VAR3 ..... ) 		# Note: *names*, not values
+# for var in "\${PREREQVARS[@]}"; do
+# ${INDENT}assert_var_nonempty $var "Missing $var value, fatal."
+# done
+
+
+# ----------------------------------------------------------------------
+# Main logic
+# ----------------------------------------------------------------------
+for X in "\$@"; do
+${INDENT}# ...
+${INDENT}# ...
+${INDENT}verbose -p "Processing \$X"
+done
+
+
+# ----------------------------------------------------------------------
+# All done - exit.
+# ----------------------------------------------------------------------
+graceful_exit \$status
+
+_EOF_
+#############################################################################
+# END SCRIPT TEMPLATE
+#############################################################################
+
+}
+
+check_filename() {
+
+  local filename=$1
+  local pathname=${filename%/*} # Equals filename if no path specified
+
+  if [[ $pathname != $filename ]]; then
+    if [[ ! -d $pathname ]]; then
+      [[ $quiet_mode ]] || echo "Directory $pathname does not exist."
+      return 1
+    fi
+  fi
+  if [[ -n $filename ]]; then
+    if [[ -e $filename ]]; then
+      if [[ -f $filename && -w $filename ]]; then
+        [[ $quiet_mode ]] && return 0
+        read -p "File $filename exists. Overwrite [y/N]? > "
+        [[ $REPLY =~ ^[yY]$ ]] || return 1
+      else
+        return 1
+      fi
+    fi
+  else
+    [[ $quiet_mode ]] && return 0 # Empty filename OK in quiet mode
+    return 1
+  fi
+}
+
+read_option() {
+
+  local i=$((option_count + 1))
+
+  echo -e "\nOption $i:"
+  read -p "Enter option letter [a-z] (Enter to end) > " 
+  [[ -n $REPLY ]] || return 1 # prevent array element if REPLY is empty
+  opt[i]=$REPLY
+  read -p "Description of option -------------------> " opt_desc[i]
+  read -p "Enter long alternate name (optional) ----> " opt_long[i]
+  read -p "Enter option argument variable (if any) -> " opt_arg[i]
+  opt_arg_desc[i]="" 					# Make sure it exists
+  [[ -n ${opt_arg[i]} ]] && \
+  read -p "Description of argument (if any)---------> " opt_arg_desc[i]
+  return 0 # force 0 return status regardless of test outcome above
+}
+
+# Trap signals
+trap "signal_exit TERM" TERM HUP
+trap "signal_exit INT"  INT
+
+# Parse command-line
+quiet_mode=
+root_mode=
+script_license=
+tab_indent=
+while [[ -n $1 ]]; do
+  case $1 in
+    -h | --help)
+      help_message; graceful_exit ;;
+    -q | --quiet)
+      quiet_mode=yes ;;
+    -s | --root)
+      root_mode=yes ;;
+    -t | --tab | --tabs)
+      tab_indent=yes ;;
+    -* | --*)
+      usage; error_exit "Unknown option $1" ;;
+    *)
+      tmp_script=$1; break ;;
+  esac
+  shift
+done
+
+# Main logic
+
+# These options are included (appended) by default.
+# If you change them here, remember to adjust insert_parser() function above.
+def_opt=(          "q"     "v"       "V"       "h" )
+def_opt_long=(     "quiet" "verbose" "version" "help" )
+def_opt_desc=( 	\
+	"Be really quiet (suppress most of non-essential output)." 	\
+	"Be verbose (more details)." 				\
+	"Print program version and exit." 			\
+	"Display this help message and exit." 			\
+	)
+def_opt_arg=(      ""      ""        ""        "" )
+def_opt_arg_desc=( ""      ""        ""        "" )
+if [[ ${#def_opt[@]} != ${#def_opt_long[@]} || 	\
+      ${#def_opt[@]} != ${#def_opt_desc[@]} ||	\
+      ${#def_opt[@]} != ${#def_opt_arg[@]}  ||	\
+      ${#def_opt[@]} != ${#def_opt_arg_desc[@]} \
+   ]]; then
+   error_exit "Mismatch in default options' counts... check $PROGNAME code!"
+fi
+def_option_count=$(( ${#def_opt[@]} ))
+
+# Start produced script's version numbering from here.
+script_version="0.1"
+
+if [[ $quiet_mode ]]; then
+  script_filename="$tmp_script"
+  check_filename "$script_filename" || \
+    error_exit "$script_filename is not writable."
+  script_purpose="[Enter purpose of script here.]"
+else
+  # Get script filename
+  script_filename=
+  while [[ -z $script_filename ]]; do
+    if [[ -n $tmp_script ]]; then
+      script_filename="$tmp_script"
+      tmp_script=
+    else
+      read -p "Enter script output filename: " script_filename
+    fi
+    if ! check_filename "$script_filename"; then
+      echo "$script_filename is not writable."
+      echo -e "Please choose another name.\n"
+      script_filename=
+    fi
+  done
+
+  # Purpose
+  read -p "Enter purpose of script: " script_purpose
+
+  # License
+  read -p "Include GPL license header [y/N]? "
+  [[ $REPLY =~ ^[yY]$ ]] && script_license="GPL"
+  
+  # Requires superuser?
+  if [[ -z $root_mode ]]; then
+    read -p "Does this script require superuser privileges [y/N]? "
+    [[ $REPLY =~ ^[yY]$ ]] && root_mode="yes"
+  else
+    echo "Does this script require superuser privileges [y/N]? y"
+  fi
+
+  # Indent by tabs?
+  if [[ -z $tab_indent ]]; then
+    read -p "Indent by tabs instead of by '$INDENT'? [y/N]? "
+    [[ $REPLY =~ ^[yY]$ ]] && tab_indent="yes"
+  else
+    echo "Indent by tabs instead of by '$INDENT'? [y/N]? y"
+  fi
+
+  # Command-line options
+  option_count=0
+  read -p "Does this script support command-line options [y/N]? "
+  [[ $REPLY =~ ^[yY]$ ]] \
+    && while read_option; do ((++option_count)); done
+fi
+
+script_name=${script_filename##*/} # Strip path from filename
+script_name=${script_name:-"[Untitled Script]"} # Set default if empty
+
+# Append default options to user-supplied ones.
+opt=( "${opt[@]}"  "${def_opt[@]}" )
+opt_long=( "${opt_long[@]}"  "${def_opt_long[@]}" )
+opt_desc=( "${opt_desc[@]}"  "${def_opt_desc[@]}" )
+opt_arg=( "${opt_arg[@]}"  "${def_opt_arg[@]}" )
+opt_arg_desc=( "${opt_arg_desc[@]}"  "${def_opt_arg_desc[@]}" )
+
+# Prepare short and long optstrings for getopt.
+# Short optstring is simple concatenation, long one is comma-separated.
+# Note an added ':' where necessary for options that requires an argument.
+optstring=""
+optstring_long=""
+i=0
+while [[ ${opt[i]} ]]; do
+  optstring+="${opt[i]}${opt_arg[i]:+:}"
+  if [[ -n ${opt_long[i]} ]]; then
+    optstring_long+="${optstring_long:+,}${opt_long[i]}${opt_arg[i]:+:}"
+  fi
+  ((++i))
+done
+
+# Set tabs indentation if requested.
+[[ -n $tab_indent ]] && INDENT='\t'
+
+# Expand all tabs and escape sequences (or we'd end up with literal '\t'
+# in many places).
+INDENT=$(echo -ne "$INDENT")
+
+# Create usage message
+usage_message=  
+i=0
+while [[ ${opt[i]} ]]; do
+  arg="]"
+  [[ ${opt_arg[i]} ]] && arg=" ${opt_arg[i]}]"
+  usage_message="$usage_message [-${opt[i]}"
+  [[ ${opt_long[i]} ]] \
+    && usage_message="$usage_message|--${opt_long[i]}"
+  usage_message="$usage_message$arg"
+  ((++i))
+done
+
+# Generate script
+if [[ $script_filename ]]; then # Write script to file
+  write_script > "$script_filename"
+  chmod +x "$script_filename"
+else
+  write_script # Write script to stdout
+fi
+graceful_exit
