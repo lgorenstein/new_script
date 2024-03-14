@@ -9,14 +9,13 @@ functionality and CLI parsing is something that many home-grown scripts
 ~eventually~ need (even if they originally started as simple one-liners
 without it), so using this generator greatly simplify development.
 
-The original `new_script` tool was written by William Shotts
-(bshotts@users.sourceforge.net) in 2012, and is still available at
-https://linuxcommand.org/lc3_new_script.php  I ran across it in 2013 or 2014,
-and immediately fell in love.  As I was gradually adding features I wanted over
-the years, I may have somewhat marred the elegance and beauty of Mr. Shotts'
-original code.  My branch no longer looks pretty... but it does have a few
-extra bells and whistles.  At the very least, it attempts to keep the generated
-template clean.
+The original `new_script` tool was written by William Shotts in 2012, and
+is available at https://linuxcommand.org/lc3_new_script.php  I ran across
+it in 2013 or 2014, and immediately fell in love.  As I was gradually
+adding features I wanted over the years, I may have somewhat marred the
+elegance and beauty of Mr. Shotts' original code.  My branch no longer
+looks pretty... but it does have a few extra bells and whistles.  At the
+very least, it attempts to keep the generated template clean. 
 
 ## Installation
 The script is self sufficient - just copy it anywhere in your $PATH.
@@ -49,7 +48,7 @@ Does this script support command-line options [y/N]? y
 
 Option 1:
 Enter option letter [a-z] (Enter to end) > l
-Description of option -------------------> Sample length
+Description of option -------------------> Specify sample length
 Enter long alternate name (optional) ----> length
 Enter option argument variable (if any) -> LENGTH
 
